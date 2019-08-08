@@ -36,34 +36,34 @@ def _roll(a, shift):
     """
     Roll 1D array elements. Improves the performance of numpy.roll() by reducing the overhead introduced from the 
     flexibility of the numpy.roll() method such as the support for rolling over multiple dimensions. 
-    
+
     Elements that roll beyond the last position are re-introduced at the beginning. Similarly, elements that roll
     back beyond the first position are re-introduced at the end (with negative shift).
-    
+
     Examples
     --------
     >>> x = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     >>> _roll(x, shift=2)
     >>> array([8, 9, 0, 1, 2, 3, 4, 5, 6, 7])
-    
+
     >>> x = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     >>> _roll(x, shift=-2)
     >>> array([2, 3, 4, 5, 6, 7, 8, 9, 0, 1])
-    
+
     >>> x = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     >>> _roll(x, shift=12)
     >>> array([8, 9, 0, 1, 2, 3, 4, 5, 6, 7])
-    
+
     Benchmark
     ---------
     >>> x = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     >>> %timeit _roll(x, shift=2)
     >>> 1.89 µs ± 341 ns per loop (mean ± std. dev. of 7 runs, 100000 loops each)
-    
+
     >>> x = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     >>> %timeit np.roll(x, shift=2)
     >>> 11.4 µs ± 776 ns per loop (mean ± std. dev. of 7 runs, 100000 loops each)
-    
+
     :param a: the input array
     :type a: array_like
     :param shift: the number of places by which elements are shifted
@@ -956,6 +956,51 @@ def fft_coefficient(x, param):
     return zip(index, res)
 
 
+@feature_calculators.set_property("fctype", "combiner")
+def fft_freq_ordered(x, param):
+    assert min([config["coeff"] for config in param]) >= 0, "Coefficients must be positive or zero."
+
+    fft = np.fft.rfft(x)
+    sort_i = np.argsort(np.abs(fft))
+    sort_i = sort_i[::-1]
+    fft = fft[sort_i]
+    freq = np.fft.rfftfreq(len(x), d=1)
+    freq = freq[sort_i]
+
+    res = [freq[config["coeff"]] if config["coeff"] < len(freq)
+           else np.NaN for config in param]
+
+    index = ['coeff_{}'.format(config["coeff"]) for config in param]
+    return zip(index, res)
+
+
+@feature_calculators.set_property("fctype", "combiner")
+def fft_coefficient_ordered(x, param):
+    assert min([config["coeff"] for config in param]) >= 0, "Coefficients must be positive or zero."
+    assert set([config["attr"] for config in param]) <= set(["imag", "real", "abs", "angle"]), \
+        'Attribute must be "real", "imag", "angle" or "abs"'
+
+    fft = np.fft.rfft(x)
+    sort_i = np.argsort(np.abs(fft))
+    sort_i = sort_i[::-1]
+    fft = fft[sort_i]
+
+    def complex_agg(x, agg):
+        if agg == "real":
+            return x.real
+        elif agg == "imag":
+            return x.imag
+        elif agg == "abs":
+            return np.abs(x)
+        elif agg == "angle":
+            return np.angle(x, deg=True)
+
+    res = [complex_agg(fft[config["coeff"]], config["attr"]) if config["coeff"] < len(fft)
+           else np.NaN for config in param]
+    index = ['coeff_{}__attr_"{}"'.format(config["coeff"], config["attr"]) for config in param]
+    return zip(index, res)
+
+
 @set_property("fctype", "combiner")
 def fft_aggregated(x, param):
     """
@@ -978,7 +1023,7 @@ def fft_aggregated(x, param):
         """
         Returns the (non centered) moment of the distribution y:
         E[y**moment] = \sum_i[index(y_i)^moment * y_i] / \sum_i[y_i]
-        
+
         :param y: the discrete distribution from which one wants to calculate the moment 
         :type y: pandas.Series or np.array
         :param moment: the moment one wants to calcalate (choose 1,2,3, ... )
@@ -1010,7 +1055,7 @@ def fft_aggregated(x, param):
         """
         Calculates the skew as the third standardized moment.
         Ref: https://en.wikipedia.org/wiki/Skewness#Definition
-        
+
         :param y: the discrete distribution from which one wants to calculate the skew 
         :type y: pandas.Series or np.array
         :return: the skew of distribution y
@@ -1031,7 +1076,7 @@ def fft_aggregated(x, param):
         """
         Calculates the kurtosis as the fourth standardized moment.
         Ref: https://en.wikipedia.org/wiki/Kurtosis#Pearson_moments
-        
+
         :param y: the discrete distribution from which one wants to calculate the kurtosis 
         :type y: pandas.Series or np.array
         :return: the kurtosis of distribution y
