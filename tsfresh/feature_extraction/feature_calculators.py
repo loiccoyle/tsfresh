@@ -956,7 +956,7 @@ def fft_coefficient(x, param):
     return zip(index, res)
 
 
-@feature_calculators.set_property("fctype", "combiner")
+@set_property("fctype", "combiner")
 def fft_freq_ordered(x, param):
     assert min([config["coeff"] for config in param]) >= 0, "Coefficients must be positive or zero."
 
@@ -974,7 +974,7 @@ def fft_freq_ordered(x, param):
     return zip(index, res)
 
 
-@feature_calculators.set_property("fctype", "combiner")
+@set_property("fctype", "combiner")
 def fft_coefficient_ordered(x, param):
     assert min([config["coeff"] for config in param]) >= 0, "Coefficients must be positive or zero."
     assert set([config["attr"] for config in param]) <= set(["imag", "real", "abs", "angle"]), \
